@@ -1,0 +1,8 @@
+set -e
+
+if [ -n "$1" ]; then
+	git checkout "$1"
+else
+	# sed removes the leading * on the branch you are currently on
+	git checkout "$(git branch --sort=-authordate | sed 's/^[* ] //' | fzf)"
+fi

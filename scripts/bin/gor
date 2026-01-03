@@ -1,0 +1,45 @@
+#!/bin/bash
+PROJECTS_INPUT=$(gum choose --no-limit frontend frontend-admin landing-page)
+
+BRANCH_NAME="release/update"
+
+TAGS=()
+PROJECTS=()
+for PROJECT in $PROJECTS_INPUT; do
+	echo "Tag name for '$PROJECT':"
+	TAG=$(gum input)
+	TAGS+=("$TAG")
+	PROJECTS+=("$PROJECT")
+	BRANCH_NAME+="-$PROJECT-$TAG"
+done
+
+echo "✨ Preparing repository"
+cd ~/projects/gitops
+git checkout main
+git pull
+git checkout -b $BRANCH_NAME
+
+patch_manifest() {
+	project_name=$1
+	tag_name=$2
+
+	echo 🩹 Patching \'$project_name\' to tag name \'$tag_name\'
+
+	prev_ver=$(yq '.cre[0].image.tag' ${project_name}.yaml)
+	yq ".cre[0].image.tag = \"$tag_name\"" ${project_name}.yaml >${project_name}.yaml.new
+	yq '.' ${project_name}.yaml >${project_name}.yaml.noblanks
+	diff -B ${project_name}.yaml.noblanks ${project_name}.yaml.new >patch.file
+	patch ${project_name}.yaml patch.file
+	rm ${project_name}.yaml.noblanks ${project_name}.yaml.new patch.file
+
+	git add .
+	git commit -m "update ${project_name} from ${prev_ver} to ${tag_name}"
+
+	echo ✅ Patched \'$project_name\'
+}
+
+for i in "${!TAGS[@]}"; do
+	patch_manifest ${PROJECTS[$i]} ${TAGS[$i]}
+done
+
+cd ~/projects/gitops

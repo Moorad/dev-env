@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FILE_1=$(mktemp)
+vim $FILE_1
+
+trap "rm -f $FILE_1" EXIT
+
+FORMATTED=$(cat $FILE_1 | jq .)
+echo "$FORMATTED" > $FILE_1
+
+
+FILE_2=$(mktemp)
+vim $FILE_2
+
+trap "rm -f $FILE_1 $FILE_2" EXIT
+
+FORMATTED=$(cat $FILE_2 | jq .)
+echo "$FORMATTED" > $FILE_2
+
+
+git diff $FILE_1 $FILE_2
