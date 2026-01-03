@@ -1,5 +1,3 @@
-tap "homebrew/cask-fonts"
-tap "homebrew/services"
 brew "caddy", restart_service: :changed
 brew "dive"
 brew "docker"
