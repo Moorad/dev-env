@@ -1,7 +1,7 @@
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME=""
 
-zstyle ':omz:update' mode auto      # update automatically without asking
+zstyle ':omz:update' mode auto # update automatically without asking
 
 plugins=(git)
 
@@ -28,14 +28,14 @@ source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 if type brew &>/dev/null; then
-    FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
+	FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
 
-    autoload -Uz compinit
-    compinit
+	autoload -Uz compinit
+	compinit
 fi
 
 # Hotkeys
-bindkey '\t' autosuggest-accept
+# bindkey '\t' autosuggest-accept
 # bindkey '^[^I' complete-word
 
 # Shortcuts
@@ -58,3 +58,6 @@ alias stash="stash"
 alias unstash="unstash"
 
 alias lookup="sh ~/lookup.sh"
+
+export EDITOR=code
+export XDG_CONFIG_HOME="$HOME/.config"

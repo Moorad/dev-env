@@ -1,0 +1,7 @@
+theme = TokyoNight Night
+font-size = 14
+font-family = Fira Code
+cursor-style = block
+cursor-style-blink = false
+shell-integration-features = no-cursor
+shell-integration = zsh

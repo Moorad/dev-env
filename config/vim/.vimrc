@@ -16,8 +16,3 @@ inoremap <Down> <C-o>:echo "No down for you!"<CR>
 
 imap jj <Esc>
 imap jk <Esc>
-
-let mapleader = " "
-nnoremap <leader>d "_d
-nnoremap <leader>c "_c
-nnoremap <leader>x "_x
