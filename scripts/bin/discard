@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z $(git status --porcelain) ]]; then
+	echo "No changes to discard"
+	exit 0
+fi
+
+git diff HEAD
+
+untracked=$(git ls-files --others --exclude-standard)
+
+for file in $untracked; do
+	git diff --no-index /dev/null "$file" || true
+done
+
+total=$(
+	{
+		git diff --name-only HEAD
+		git ls-files --others --exclude-standard
+	} | sort -u | wc -l | tr -d ' '
+)
+
+if gum confirm "Are you sure do you want to discard ($total) changes?"; then
+	git reset --hard
+	git clean -fd
+fi
