@@ -16,3 +16,11 @@ inoremap <Down> <C-o>:echo "No down for you!"<CR>
 
 imap jj <Esc>
 imap jk <Esc>
+
+" VSCode vim extension reads leader key from the settings instead of vimrc. So only vim is reading this
+let mapleader = " "
+
+" Black hole operations
+nnoremap <leader>d "_d
+nnoremap <leader>c "_c
+nnoremap <leader>x "_x
