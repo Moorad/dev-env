@@ -24,3 +24,6 @@ let mapleader = " "
 nnoremap <leader>d "_d
 nnoremap <leader>c "_c
 nnoremap <leader>x "_x
+
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz
