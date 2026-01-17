@@ -29,7 +29,16 @@ function check_replace() {
 
 	echo ""
 	echo "Checking $file config"
-	if ! git diff --no-index $original_location $dev_env_location; then
+
+	if [ ! -f $original_location ]; then 
+		echo "It seems like the $file config does not exist in your system, creating $file config"
+	 	mkdir -p $(dirname $original_location)
+		touch $original_location
+	fi
+
+	has_diff=$(cmp -s $original_location $dev_env_location; echo $?)  
+
+	if  [[ $has_diff -eq 1 ]] && ! git diff --no-index $original_location $dev_env_location; then
 		if gum confirm "Do you want to replace your $file anyways"; then
 			backup $original_location
 			replace $dev_env_location $original_location
@@ -54,3 +63,7 @@ check_replace ./config/vim/.vimrc ~/.vimrc || true
 check_replace ./config/ghostty/config ~/.config/ghostty/config && announce "Reload your ghostty config to apply the changes:\n\n⌘ + SHIFT + ,"
 
 check_replace ./config/lazygit/config.yml ~/.config/lazygit/config.yml || true
+
+for FILE in "./scripts/bin"/*; do
+	echo "$FILE"
+done
