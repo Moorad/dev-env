@@ -5,7 +5,7 @@ A repository to store my dotfiles, configs and global scripts. Feel free to look
 ## Prerequisites
 
 -   zsh
--   br. w
+-   brew
 
 ## Installation
 
