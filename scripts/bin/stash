@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MESSAGE=
+if [[ $# -ne 0 ]]; then
+	MESSAGE=$1
+else
+	MESSAGE=$(gum input --placeholder 'message')
+fi
+
+git stash push -u -m "$MESSAGE"

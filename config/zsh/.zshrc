@@ -47,14 +47,10 @@ alias p="pnpm"
 alias ncln="find . -type d \( -name "node_modules" -o -name ".next" -o -name ".turbo" \) -prune -exec rm -rf {} +"
 alias aes="java -jar ~/misc/AesUtils.jar"
 
-function stash {
-	git stash push -u -m "$(gum input --placeholder 'message')"
-}
-
 function unstash {
 	git stash pop "$(git stash list | sed -E 's/^stash@(\{[0-9]+\}): (WIP on|On) ([^:]+): ?([0-9a-f]{7,})? ?(.*)$/stash@\1  \3  \5/' | fzf | awk '{print $1}')"
 }
-alias stash="stash"
+
 alias unstash="unstash"
 
 alias lookup="sh ~/lookup.sh"
