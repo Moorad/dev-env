@@ -1,3 +1,5 @@
+lua require('init')
+
 nnoremap <Left> :echo "No left for you!"<CR>
 vnoremap <Left> :<C-u>echo "No left for you!"<CR>
 inoremap <Left> <C-o>:echo "No left for you!"<CR>
@@ -17,6 +19,9 @@ inoremap <Down> <C-o>:echo "No down for you!"<CR>
 imap jj <Esc>
 imap jk <Esc>
 
+vnoremap > >gv
+vnoremap < <gv
+
 let mapleader = " "
 
 nnoremap <leader>d "_d
@@ -27,3 +32,5 @@ nnoremap <C-d> <C-d>zz
 nnoremap <C-u> <C-u>zz
 
 set clipboard+=unnamedplus
+
+command! W write
