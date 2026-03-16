@@ -3,8 +3,20 @@ return {
     "snacks.nvim",
     opts = {
       scroll = {
-        enabled = false
-      }
-    }
-  }
+        enabled = false,
+      },
+      picker = {
+        sources = {
+          explorer = {
+            hidden = true,
+            ignored = true,
+          },
+          files = {
+            hidden = true,
+            ignored = true,
+          },
+        },
+      },
+    },
+  },
 }
