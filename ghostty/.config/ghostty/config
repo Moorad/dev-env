@@ -7,3 +7,4 @@ shell-integration-features = no-cursor
 shell-integration = zsh
 confirm-close-surface = false
 bell-features = no-attention, no-title
+macos-option-as-alt = true
