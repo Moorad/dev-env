@@ -1,4 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/jesseduffield/lazygit/master/schema/config.json
 git:
-    pagers:
-        - pager: diff-so-fancy
+  pagers:
+    - externalDiffCommand: difft
+customCommands:
+  - command: git -c core.pager="delta --syntax-theme gruvbox-dark --dark --side-by-side --paging=always" diff {{.SelectedLocalCommit.Sha}}^ {{.SelectedLocalCommit.Sha}}
+    context: commits
+    description: full-screen diff of selected commit
+    key: <c-f>
+    output: terminal
