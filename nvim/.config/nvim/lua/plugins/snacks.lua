@@ -1,7 +1,8 @@
 return {
   {
     "snacks.nvim",
-    ---@type snacks.Config
+    ---@module 'snacks'
+    ---@type snacks.config
     opts = {
       scroll = {
         enabled = false,
