@@ -8,3 +8,8 @@ vim.keymap.set("n", "<leader>e", LazyVim.pick("explorer", { root = false }), { d
 vim.keymap.set("n", "<leader>E", LazyVim.pick("explorer", { root = false }), { desc = "Explorer Snacks (root dir)" })
 
 vim.keymap.set("n", "-", "<CMD>Oil<CR>", { desc = "Open parent directory" })
+
+vim.keymap.set("n", "<leader>fy", function()
+  vim.fn.setreg("+", vim.fn.expand("%:f"))
+  print("Copied: " .. vim.fn.expand("%:f"))
+end, { desc = "Copy file path" })

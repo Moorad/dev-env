@@ -4,3 +4,6 @@
 vim.o.ignorecase = true
 vim.opt.wrap = true
 vim.g.snacks_animate = false
+
+vim.g.lazyvim_prettier_needs_config = true
+vim.g.prettier_additional_supported_filetypes = { "javascript.glimmer", "typescript.glimmer" }
