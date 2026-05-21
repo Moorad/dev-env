@@ -65,3 +65,4 @@ alias lookup="sh ~/lookup.sh"
 
 export EDITOR=nvim
 export XDG_CONFIG_HOME="$HOME/.config"
+export PATH="$HOME/Library/Python/3.9/bin:$PATH"

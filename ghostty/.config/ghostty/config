@@ -1,4 +1,4 @@
-theme = TokyoNight Night
+theme = Rose Pine
 font-size = 14
 font-family = JetBrains Mono
 cursor-style = block
@@ -8,3 +8,4 @@ shell-integration = zsh
 confirm-close-surface = false
 bell-features = no-attention, no-title
 macos-option-as-alt = true
+progress-style = false
