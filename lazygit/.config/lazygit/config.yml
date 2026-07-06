@@ -8,3 +8,4 @@ customCommands:
     description: full-screen diff of selected commit
     key: <c-f>
     output: terminal
+promptToReturnFromSubprocess: false
