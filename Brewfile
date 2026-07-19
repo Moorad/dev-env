@@ -1,5 +1,3 @@
-tap "anomalyco/tap"
-
 brew "caddy", restart_service: :changed
 brew "dive"
 brew "diff-so-fancy"
