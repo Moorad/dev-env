@@ -1,2 +1,12 @@
+[push]
+	autoSetupRemote = true
 [diff]
-    external = difft
+	external = difft
+[core]
+	pager = diff-so-fancy | less --tabs=4 -RF
+[interactive]
+	diffFilter = diff-so-fancy --patch
+
+# Device-specific settings.
+[include]
+	path = ~/.gitconfig.local
