@@ -1,0 +1,210 @@
+#!/bin/bash
+set -euo pipefail
+
+CHAT_ID=8957215200
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/delegate"
+WIDTH=80
+
+info() { gum log -l info "$*"; }
+warn() { gum log -l warn "$*"; }
+oops() { gum log -l error "$*"; }
+
+title() { gum style --foreground 212 --bold --margin "1 0 0 1" "$*"; }
+
+# gum style only wraps when it is given an explicit width, otherwise long lines
+# spill past the border and the box falls apart.
+box() { gum style --border rounded --border-foreground 240 --padding "0 1" --margin "0 1" --width "$WIDTH" "$1"; }
+
+# The agent answers in markdown, so render it before boxing it. gum format does
+# not wrap when its output is piped, which leaves the wrapping to gum style. Its
+# 2 space left margin has to go, or wrapped lines sit left of the ones they
+# continue.
+mdbox() {
+  gum format <<<"$1" | sed 's/^  //' |
+    gum style --border rounded --border-foreground 240 --padding "0 1" --margin "0 1" --width "$WIDTH"
+}
+
+slugify() {
+  printf '%s' "$1" |
+    tr '[:upper:]' '[:lower:]' |
+    sed -E 's#[^a-z0-9/]+#-#g; s#-*/-*#/#g; s#/{2,}#/#g; s#^[-/]+##; s#[-/]+$##'
+}
+
+send() {
+  gum spin --title "Notifying Telegram..." -- \
+    curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+    --data-urlencode "chat_id=$CHAT_ID" --data-urlencode "text=$1"
+}
+
+BOT_TOKEN=$(gum spin --show-output --title "Unlocking Telegram bot token..." -- \
+  op item get "Telegram Bot Token" --field credential --reveal) || true
+if [ -z "$BOT_TOKEN" ]; then
+  oops "No bot token came back from 1Password"
+  exit 1
+fi
+info "Bot token loaded"
+
+TASKS=$(gum spin --show-output --title "Fetching tasks from Todoist..." -- td task list --json)
+LABELS=$(jq -r '.results | sort_by(-.priority)[] | "P\(5 - .priority) - \(.content)"' <<<"$TASKS")
+if [ -z "$LABELS" ]; then
+  warn "No tasks to delegate"
+  exit 0
+fi
+info "$(wc -l <<<"$LABELS" | tr -d ' ') tasks loaded"
+
+CHOICE=$(gum filter --header="Pick a task:" --placeholder="type to filter..." --height=15 --fuzzy-sort <<<"$LABELS") || true
+if [ -z "$CHOICE" ]; then
+  warn "No task picked, nothing to do"
+  exit 0
+fi
+TASK=$(jq -c --arg c "$CHOICE" 'first(.results[] | select("P\(5 - .priority) - \(.content)" == $c))' <<<"$TASKS")
+ID=$(jq -r '.id' <<<"$TASK")
+URL=$(jq -r '.url' <<<"$TASK")
+
+TASK_INFO=$(gum spin --show-output --title "Loading task $ID..." -- td task view "$ID")
+title "Task"
+box "$TASK_INFO"
+
+mkdir -p "$STATE_DIR"
+STATE="$STATE_DIR/$ID.json"
+
+# A previous run on this task leaves its session id behind, so we can pick the
+# conversation back up instead of starting the agent from scratch.
+RESUME=""
+BRANCH=""
+if [ -f "$STATE" ]; then
+  PREV_SESSION=$(jq -r '.session // empty' "$STATE")
+  PREV_BRANCH=$(jq -r '.branch // empty' "$STATE")
+  PREV_DIR=$(jq -r '.dir // empty' "$STATE")
+  if [ -n "$PREV_SESSION" ]; then
+    info "Previous session found on branch $PREV_BRANCH"
+    if gum confirm "resume the previous agent session?"; then
+      RESUME="$PREV_SESSION"
+      BRANCH="$PREV_BRANCH"
+      if [ -d "$PREV_DIR" ]; then
+        cd "$PREV_DIR"
+        info "Back in $PREV_DIR on $BRANCH"
+      else
+        warn "$PREV_DIR is gone, resuming from $PWD"
+      fi
+    fi
+  fi
+fi
+
+if [ -z "$RESUME" ]; then
+  if gum confirm "would you like to create a new worktree?"; then
+    BRANCH=$(slugify "$(gum input --header="Branch name" --placeholder="short description")")
+    if [ -z "$BRANCH" ]; then
+      warn "Empty branch name, skipping the worktree"
+    elif gum spin --title "Creating worktree delegated/$BRANCH..." -- wp create "delegated/$BRANCH" "$BRANCH"; then
+      info "Worktree delegated/$BRANCH ready on branch $BRANCH"
+    else
+      oops "Worktree creation failed, carrying on in $PWD"
+      BRANCH=""
+    fi
+  fi
+  if [ -z "$BRANCH" ]; then
+    BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    info "Working in $PWD on $BRANCH"
+  fi
+fi
+
+if [ -n "$RESUME" ]; then
+  NOTES=$(gum write --header="Follow-up" --placeholder="Comments you'd like the agent to address...") || true
+  if [ -z "$NOTES" ]; then
+    warn "Nothing to follow up on, bailing out"
+    exit 0
+  fi
+  PROMPT="Following up on the same task:
+
+$NOTES
+"
+else
+  ADDITIONAL_CONTEXT=$(gum write --header="Additional context" --placeholder="Anything else the agent should know?") || true
+  if [ -z "$ADDITIONAL_CONTEXT" ]; then
+    info "No extra context given"
+  else
+    info "Extra context added"
+  fi
+
+  PROMPT="You have been delegated to work on the following task:
+
+$TASK_INFO
+
+Additional context:
+$ADDITIONAL_CONTEXT
+"
+
+  if gum spin --title "Labelling task as Delegated..." -- td task update --labels Delegated "$ID"; then
+    info "Task labelled Delegated"
+  else
+    warn "Could not label the task"
+  fi
+fi
+
+title "Prompt"
+box "$PROMPT"
+
+status=0
+if [ -n "$RESUME" ]; then
+  title "Resuming the agent"
+  info "Session $RESUME"
+  out=$(gum spin --show-output --spinner minidot --title "Agent is picking up where it left off..." -- \
+    claude -r "$RESUME" -p "$PROMPT" --output-format json --permission-mode auto) || status=$?
+else
+  title "Handing off to Claude"
+  out=$(gum spin --show-output --spinner minidot --title "Agent is working on it..." -- \
+    claude -p "$PROMPT" --output-format json --permission-mode auto) || status=$?
+fi
+
+# Save the session id either way, a failed run is still worth resuming.
+SESSION=$(jq -r '.session_id // empty' <<<"$out" 2>/dev/null || true)
+if [ -n "$SESSION" ]; then
+  jq -n --arg s "$SESSION" --arg b "$BRANCH" --arg d "$PWD" \
+    '{session: $s, branch: $b, dir: $d}' >"$STATE"
+  info "Session $SESSION saved, pick this task again to resume it"
+
+  # One comment per run, so the task carries a log of every round.
+  if [ -n "$RESUME" ]; then
+    NOTE="🔁 Resumed on branch \`$BRANCH\`"
+  else
+    NOTE="🌿 Delegated to branch \`$BRANCH\`"
+  fi
+  if gum spin --title "Recording the session on Todoist..." -- \
+    td comment add "$ID" --content "$NOTE
+🧵 Session \`$SESSION\`"; then
+    info "Branch and session recorded on the Todoist task"
+  else
+    warn "Could not comment on the task"
+  fi
+fi
+
+if [ $status -ne 0 ]; then
+  oops "Agent failed with exit code $status"
+  box "${out:0:2000}"
+  send "❌ Delegated task failed (exit code $status)
+
+📋 $CHOICE
+🌿 $BRANCH
+🧵 ${SESSION:-none}
+🔗 $URL
+
+${out:0:3000}"
+  exit $status
+fi
+
+text=$(jq -r '.result' <<<"$out")
+
+info "Agent finished"
+title "Result"
+mdbox "$text"
+
+send "✅ Delegated task finished
+
+📋 $CHOICE
+🌿 $BRANCH
+🧵 ${SESSION:-none}
+🔗 $URL
+
+${text:0:3000}"
+info "Telegram notified"
