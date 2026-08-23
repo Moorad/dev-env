@@ -1,0 +1,1 @@
+Whenever you create a markdown or html artifact, ALWAYS upload it to my personal file server (using `/upload-artifact` skill), never upload it to claude.ai and never write the file to the current working directory unless explicitly instructed.
