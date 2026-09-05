@@ -12,4 +12,8 @@ fi
 
 echo "Stowing all folders"
 
+# Keep Pi's runtime data (credentials, sessions, and caches) outside the repo.
+# Without this directory, Stow may symlink the entire ~/.pi tree.
+mkdir -p ~/.pi/agent
+
 stow */
