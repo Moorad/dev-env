@@ -1,0 +1,20 @@
+{
+  "lastChangelogVersion": "0.85.1",
+  "theme": "rose-pine",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "high",
+  "packages": [
+    "npm:@plannotator/pi-extension",
+    "npm:@narumitw/pi-usage"
+  ],
+  "hideThinkingBlock": false,
+  "enabledModels": [
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-luna",
+    "openrouter/z-ai/glm-5.3-flash",
+    "openrouter/deepseek/deepseek-v4-flash"
+  ]
+}
