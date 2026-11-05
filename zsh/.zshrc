@@ -66,3 +66,6 @@ alias lookup="sh ~/lookup.sh"
 export EDITOR=nvim
 export XDG_CONFIG_HOME="$HOME/.config"
 export PATH="$HOME/Library/Python/3.9/bin:$PATH"
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
+
