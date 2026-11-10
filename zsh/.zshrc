@@ -61,6 +61,18 @@ function unstash {
 
 alias unstash="unstash"
 
+function n {
+	local start=$SECONDS
+	"$@"
+	local exit_status=$?
+	local title="done"
+	(( exit_status != 0 )) && title="failed ($exit_status)"
+	osascript -e 'on run argv' \
+		-e 'display notification (item 1 of argv) with title (item 2 of argv) sound name "Glass"' \
+		-e 'end run' "$* ($(( SECONDS - start ))s)" "$title"
+	return $exit_status
+}
+
 alias lookup="sh ~/lookup.sh"
 
 export EDITOR=nvim
