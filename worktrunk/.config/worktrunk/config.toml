@@ -1,0 +1,14 @@
+skip-shell-integration-prompt = true
+
+[projects."gitlab.sccc.sa/cre/cre-2.0.0/fe-monorepo"]
+
+worktree-path = "{{ repo_path }}/../{{ branch | sanitize }}"
+
+[commit.generation]
+command = "MAX_THINKING_TOKENS=0 claude -p --no-session-persistence --model=haiku --tools='' --safe-mode --setting-sources='user' --system-prompt=''"
+
+[post-switch]
+rex = "~/scripts/bin/wt-rex switch {{ worktree_path }}"
+
+[post-remove]
+rex = "~/scripts/bin/wt-rex remove {{ worktree_path }}"
