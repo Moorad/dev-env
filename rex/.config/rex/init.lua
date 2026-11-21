@@ -24,14 +24,9 @@ local function has_floating_terminal()
   return false
 end
 
-local function terminal_directory(block_id)
-  if block_id == nil then return nil end
-  local result = rex.block.call(TERMINAL, "pwd", { block_id = block_id })
-  if result == nil or result.pwd == nil then return nil end
-  local path = result.pwd:match("^file://[^/]*(/.*)$")
-  if path == nil then return nil end
-  return (path:gsub("%%(%x%x)", function(hex) return string.char(tonumber(hex, 16)) end))
-end
+-- Worktree and project sessions: cmd+p, cmd+;, shift+cmd+x. See places.lua.
+local places = require("places")
+local terminal_directory = places.terminal_directory
 
 rex.action{
   name  = "toggle_floating_terminal",

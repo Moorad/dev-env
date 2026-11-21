@@ -11,4 +11,4 @@ command = "MAX_THINKING_TOKENS=0 claude -p --no-session-persistence --model=haik
 rex = "~/scripts/bin/wt-rex switch {{ worktree_path }}"
 
 [post-remove]
-rex = "~/scripts/bin/wt-rex remove {{ worktree_path }}"
+rex = "~/scripts/bin/wt-rex remove {{ worktree_path }} {{ primary_worktree_path }}"
