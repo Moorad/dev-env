@@ -2,7 +2,7 @@
 --
 --   cmd+p        Go to Place…       jump to a place, or type a name to create a worktree
 --   cmd+;        Previous Place     toggle between this place and the last one
---   shift+cmd+x  Remove Worktrees…  tick worktrees to remove (merged & clean start ticked)
+--   shift+cmd+x  Remove…            remove one worktree (and its session), or close one session
 --
 -- Session labels are the link between a session and its directory:
 --   fe/feat-ds-table   a worktree (repo prefix from ALIASES, else the repo's name)
@@ -45,8 +45,6 @@ local EXEC_ENV = {
   REX_BLOCK   = false,
 }
 
--- worktrunk's states for a branch that's safe to delete: "_" and "⊂".
-local MERGED = { empty = true, integrated = true }
 local DIRTY  = { "staged", "modified", "untracked", "renamed", "deleted", "conflicted" }
 
 ---------------------------------------------------------------------------
@@ -249,16 +247,14 @@ local function remember(from, to)
   save_state(state)
 end
 
--- Shows a session in the app, folding every other session in the sidebar.
+-- Shows a session in the app.
 local function show(ctx, session_id, window_id)
   remember(ctx.session_id, session_id)
   local ok, err = pcall(rex.client.queue, "session.select",
     { session_id = session_id, window_id = window_id })
   if not ok then
     rex.log("warn", "places: can't show " .. session_id .. ": " .. tostring(err))
-    return
   end
-  pcall(rex.client.queue, "session.collapse_others", { session_id = session_id })
 end
 
 -- Moves a session to just after the other sessions of its repo.
@@ -279,7 +275,6 @@ local function create_session(label, cwd, input)
   local created = must(rex.call("session.create", {
     label = label,
     initial_windows = { {
-      window_label = "shell",
       layout = rex.layout.block{ flavor = SHELL, options = { cwd = cwd, initial_input = input } },
     } },
   }))
@@ -448,12 +443,13 @@ rex.action{
 
 rex.action{
   name        = "place_remove",
-  title       = "Remove Worktrees…",
+  title       = "Remove Worktree or Session…",
   category    = "Places",
-  description = "Remove worktrees with wt remove and close their sessions.",
+  description = "Remove a worktree with wt remove and close its session, or close a session.",
   run = function(ctx)
     need_ui()
     local places, repos = discover()
+    local list = sessions()
 
     -- worktrunk's status for each repo with worktrees, fetched in parallel.
     local jobs = {}
@@ -468,9 +464,20 @@ rex.action{
         jobs[#jobs + 1] = { repo = repo, removable = removable, h = h }
       end
     end
-    if #jobs == 0 then error("There are no worktrees to remove.", 0) end
 
-    local items, info = {}, {}
+    local open = {}
+    for _, s in ipairs(list) do open[s.label] = s end
+    local current_label
+    for _, s in ipairs(list) do
+      if s.session_id == ctx.session_id then current_label = s.label end
+    end
+
+    -- The current place goes first so Enter removes it.
+    local items, info, worktree_labels = {}, {}, {}
+    local function add(item)
+      if item.title == current_label then table.insert(items, 1, item) else items[#items + 1] = item end
+    end
+
     for _, job in ipairs(jobs) do
       local status = {}
       local r = job.h and job.h:wait(20)
@@ -485,70 +492,77 @@ rex.action{
         for _, k in ipairs(DIRTY) do dirty = dirty or changes[k] == true end
         local display = st and st.display or {}
         local symbols = type(display.symbols) == "string" and display.symbols ~= "" and display.symbols or nil
-        info[place.root] = { place = place, repo = job.repo, dirty = dirty }
-        items[#items + 1] = { id = place.root, title = place.label, icon = "branch", detail = symbols,
-                              subtitle = place.branch ~= "" and place.branch or tilde(place.root),
-                              selected = MERGED[display.state] == true and not dirty }
+        local detail = open[place.label] and ((symbols and symbols .. "  " or "") .. "open") or symbols
+        info["w:" .. place.root] = { place = place, repo = job.repo, dirty = dirty }
+        worktree_labels[place.label] = true
+        add{ id = "w:" .. place.root, title = place.label, icon = "branch", detail = detail,
+             subtitle = place.branch ~= "" and place.branch or tilde(place.root) }
       end
     end
 
-    local chosen = rex.ui.pick{
-      title = "Remove worktrees", placeholder = "Filter worktrees", confirm = "Remove",
-      items = items, multiple = true,
-    }
-    if chosen == nil or #chosen == 0 then return end
-
-    local dirty = {}
-    for _, root in ipairs(chosen) do
-      if info[root].dirty then dirty[#dirty + 1] = info[root].place.label end
+    -- Sessions that aren't a removable worktree: closing one leaves its directory alone.
+    local by_label = {}
+    for _, place in ipairs(places) do by_label[place.label] = place end
+    for _, s in ipairs(list) do
+      if not worktree_labels[s.label] then
+        local place = by_label[s.label]
+        add{ id = "s:" .. s.session_id, title = s.label, detail = "close session",
+             icon = place and ICONS[place.kind] or "terminal",
+             subtitle = place and tilde(place.root) }
+      end
     end
-    local force = false
-    if #dirty > 0 then
+    if #items == 0 then error("There are no worktrees or sessions to remove.", 0) end
+
+    local choice = rex.ui.pick{
+      title = "Remove worktree or close session", placeholder = "Filter worktrees and sessions",
+      confirm = "Remove", items = items,
+    }
+    if choice == nil then return end
+
+    local kind, value = choice:match("^(%a):(.*)$")
+    if kind == "s" then
+      if value == ctx.session_id then
+        local back = back_session(ctx.session_id, list)
+        if back then show(ctx, back.session_id) end
+      end
+      destroy_session(value)
+      return
+    end
+
+    local i = info[choice]
+    if i == nil then return end
+    if i.dirty then
       local answer = rex.ui.pick{
-        title = #dirty .. " with uncommitted changes: " .. table.concat(dirty, ", "),
+        title = i.place.label .. " has uncommitted changes",
         items = {
-          { id = "skip",   title = "Skip them",         subtitle = "Remove only the clean worktrees" },
-          { id = "force",  title = "Force-remove them", subtitle = "Their uncommitted changes are lost" },
           { id = "cancel", title = "Cancel" },
+          { id = "force",  title = "Force-remove it", subtitle = "Its uncommitted changes are lost" },
         },
       }
-      if answer == nil or answer == "cancel" then return end
-      force = answer == "force"
+      if answer ~= "force" then return end
     end
 
-    local list, failures, removed_current = sessions(), {}, nil
-    for _, root in ipairs(chosen) do
-      local i = info[root]
-      if force or not i.dirty then
-        local argv = { WT, "-C", i.repo.main or i.repo.dir, "remove", root }
-        if i.dirty then argv[#argv + 1] = "--force" end
-        -- Detached, so the deletion wt leaves running in the background
-        -- isn't stopped when this action returns.
-        local h, err = rex.exec.start(argv, { env = EXEC_ENV, detach = true })
-        local r = h and h:wait(20)
-        if h and r == nil then err = "wt remove timed out" end
-        if r and not r.ok then err = trim(r.stderr ~= "" and r.stderr or r.stdout) end
-        local s = find_session(list, i.place.label)
-        if err then
-          failures[#failures + 1] = { id = root, title = i.place.label, subtitle = err }
-        elseif s and s.session_id == ctx.session_id then
-          removed_current = i
-        elseif s then
-          destroy_session(s.session_id)
-        end
-      end
+    local argv = { WT, "-C", i.repo.main or i.repo.dir, "remove", value }
+    if i.dirty then argv[#argv + 1] = "--force" end
+    -- Detached, so the deletion wt leaves running in the background
+    -- isn't stopped when this action returns.
+    local h, err = rex.exec.start(argv, { env = EXEC_ENV, detach = true })
+    local r = h and h:wait(20)
+    if h and r == nil then err = "wt remove timed out" end
+    if r and not r.ok then err = trim(r.stderr ~= "" and r.stderr or r.stdout) end
+    if err then
+      rex.ui.pick{ title = "Couldn't remove " .. i.place.label,
+                   items = { { id = value, title = i.place.label, subtitle = err } } }
+      return
     end
 
-    if #failures > 0 then
-      rex.ui.pick{ title = "Couldn't remove " .. #failures .. " worktree(s)", items = failures }
-    end
-    if removed_current then
-      local main = removed_current.repo.main
+    local s = open[i.place.label]
+    if s and s.session_id == ctx.session_id then
       for _, place in ipairs(places) do
-        if place.root == main then open_place(ctx, place, list) end
+        if place.root == i.repo.main then open_place(ctx, place, list) end
       end
-      destroy_session(ctx.session_id)
     end
+    if s then destroy_session(s.session_id) end
   end,
 }
 
